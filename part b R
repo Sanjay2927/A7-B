@@ -1,0 +1,68 @@
+# ==========================
+# Install & Load Packages
+# ==========================
+install.packages(c("vars", "urca", "tseries", "forecast", "readr", "ggplot2"))
+library(vars)
+library(urca)
+library(tseries)
+library(forecast)
+library(readr)
+library(ggplot2)
+
+# ==========================
+# Load the Dataset
+# ==========================
+df <- read_csv("C:\\Users\\hp\\Downloads\\commodity_prices.csv")
+
+# Convert date column and select variables
+df$date <- as.Date(df$date)
+ts_data <- df[, c( "sugar_world", "coffee_arabica")]
+ts_data <- na.omit(ts_data)
+rownames(ts_data) <- df$date[!is.na(df$oil_brent)]
+
+# ==========================
+# Plot the Series
+# ==========================
+ts_df <- ts(ts_data, start = c(1960, 1), frequency = 12)
+autoplot(ts_df, facets = TRUE) + ggtitle("Monthly Commodity Prices")
+
+# ==========================
+# ADF Test (for Stationarity)
+# ==========================
+adf.test(ts_df[, "sugar_world"])
+adf.test(ts_df[, "coffee_arabica"])
+
+# ==========================
+# First Differencing if Non-stationary
+# ==========================
+ts_diff <- diff(ts_df)
+ts_diff <- na.omit(ts_diff)
+
+# ADF Test after differencing
+adf.test(ts_diff[, "sugar_world"])
+adf.test(ts_diff[, "coffee_arabica"])
+
+# ==========================
+# Johansen Cointegration Test
+# ==========================
+joh_test <- ca.jo(ts_df, type = "trace", ecdet = "const", K = 2)
+summary(joh_test)
+
+# ==========================
+# Fit VAR Model (if stationary)
+# ==========================
+VARselect(ts_diff, lag.max = 12, type = "const")
+var_model <- VAR(ts_diff, p = 2, type = "const")
+summary(var_model)
+
+# ==========================
+# Forecast with VAR
+# ==========================
+var_forecast <- predict(var_model, n.ahead = 12)
+plot(var_forecast)
+
+# ==========================
+# Fit VECM (if cointegrated)
+# ==========================
+vecm_model <- cajorls(joh_test, r = 1)
+summary(vecm_model)
